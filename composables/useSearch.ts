@@ -350,11 +350,12 @@ export function useSearch() {
   }
 
   // 复制链接
-  async function copyLink(url: string): Promise<void> {
+  async function copyLink(url: string): Promise<boolean> {
     try {
       await navigator.clipboard.writeText(url);
-    } catch (error) {
-      // 忽略复制失败
+      return true;
+    } catch {
+      return false;
     }
   }
 

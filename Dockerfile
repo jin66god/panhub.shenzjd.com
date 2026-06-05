@@ -2,20 +2,15 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# 启用 Corepack 并使用 pnpm（与项目一致）
-RUN corepack enable && corepack prepare pnpm@9 --activate
-
 # 先复制依赖文件，利用层缓存
-COPY package.json pnpm-lock.yaml ./
+COPY package.json package-lock.json ./
 
-# 安装依赖（frozen-lockfile 确保与 pnpm-lock 完全一致）
-# 使用 BuildKit cache mount 加速 pnpm store 复用
-RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
+# 安装依赖
+RUN npm ci
 
 # 复制源码并构建
 COPY . .
-RUN NITRO_PRESET=node-server pnpm run build
+RUN NITRO_PRESET=node-server npm run build
 
 # 运行阶段：Alpine 仅 ~50MB
 FROM node:20-alpine AS runner
@@ -37,7 +32,7 @@ COPY --from=builder /app/package.json ./
 RUN mkdir -p /app/.output/server/node_modules/sql.js/dist
 COPY --from=builder /app/node_modules/sql.js/dist/sql-wasm.wasm /app/.output/server/node_modules/sql.js/dist/sql-wasm.wasm
 
-# 创建 data 目录（用于 JSON 热搜持久化）
+# 创建 data 目录（用于热搜持久化）
 RUN mkdir -p /app/data && chown node:node /app/data
 
 # 切换到非 root 用户

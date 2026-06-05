@@ -68,7 +68,8 @@
       "Bash(kill 39736)",
       "Bash(pnpm remove *)",
       "Bash(git rm *)",
-      "Bash(xargs kill)"
+      "Bash(xargs kill)",
+      "Bash(npm test *)"
     ]
   }
 }

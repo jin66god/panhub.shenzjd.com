@@ -77,16 +77,16 @@ docker run -d --name panhub -p 4000:4000 \
 
 ```bash
 # 安装依赖
-pnpm install
+npm install
 
 # 开发服务器
-pnpm dev
+npm dev
 
 # 运行测试
-pnpm test
+npm test
 
 # 构建生产版本
-pnpm build
+npm build
 ```
 
 ---
@@ -199,20 +199,20 @@ server/core/
 
 - 使用 TypeScript 编写
 - 核心功能必须包含单元测试
-- 提交前运行 `pnpm test`
+- 提交前运行 `npm test`
 - 遵循 [Conventional Commits](https://www.conventionalcommits.org/)
 
 ### 测试
 
 ```bash
 # 运行所有测试
-pnpm test
+npm test
 
 # 监听模式
-pnpm test:watch
+npm test:watch
 
 # 生成覆盖率报告
-pnpm test:coverage
+npm test:coverage
 ```
 
 ---

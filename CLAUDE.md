@@ -8,21 +8,21 @@ PanHub is a Nuxt 4 web application that aggregates search results from Telegram 
 
 ## Package Manager
 
-`pnpm` (lockfile: `pnpm-lock.yaml`). Always use `pnpm install`.
+`npm` (lockfile: `package-lock.json`). Always use `npm install`.
 
 ## Development Commands
 
 ```bash
-pnpm dev                  # Start dev server
-pnpm build                # Production build
-pnpm preview              # Preview production build
-pnpm test                 # Run all unit tests (Vitest)
-pnpm test:watch           # Tests in watch mode
-pnpm test:coverage        # Coverage reports (V8)
-pnpm test:api             # API integration tests
+npm dev                  # Start dev server
+npm build                # Production build
+npm preview              # Preview production build
+npm test                 # Run all unit tests (Vitest)
+npm test:watch           # Tests in watch mode
+npm test:coverage        # Coverage reports (V8)
+npm test:api             # API integration tests
 vitest run test/unit/memoryCache.test.ts   # Run a single test file
 vitest run -t "test name pattern"          # Run tests matching a name
-pnpm deploy:cf            # Deploy to Cloudflare Workers
+npm deploy:cf            # Deploy to Cloudflare Workers
 ```
 
 ## Architecture
@@ -78,7 +78,7 @@ Route rules in `nuxt.config.ts` disable caching for all API routes (SWR 3600 onl
 
 ## Deployment
 
-- **Cloudflare Workers** (default): `wrangler.toml` with `nodejs_compat` flag. `pnpm deploy:cf` or `wrangler deploy`.
+- **Cloudflare Workers** (default): `wrangler.toml` with `nodejs_compat` flag. `npm deploy:cf` or `wrangler deploy`.
 - **Vercel**: Auto-detected via `VERCEL` env var. Sets `nitro.preset: "vercel"`.
 - **Docker**: `Dockerfile` uses `node:20-alpine`, builds with `NITRO_PRESET=node-server`. Data dir `/app/data` for JSON hot search persistence. CI builds push to GHCR and Docker Hub.
 - **Nitro preset**: Auto-detected via `NITRO_PRESET` env var or platform detection. Defaults to `cloudflare-module`.
@@ -93,7 +93,7 @@ Route rules in `nuxt.config.ts` disable caching for all API routes (SWR 3600 onl
 - Framework: Vitest with Node environment, globals enabled.
 - Config: `vitest.config.ts` — includes `test/unit/**/*.test.ts`, alias `#internal` → `.nuxt`.
 - Coverage: V8 provider, excludes `node_modules/`, `test/`, `*.d.ts`, config/index files.
-- Run `pnpm test` before committing changes to `server/core/`.
+- Run `npm test` before committing changes to `server/core/`.
 
 ## Conventions
 

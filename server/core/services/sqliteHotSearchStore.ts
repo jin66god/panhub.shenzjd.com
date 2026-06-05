@@ -1,4 +1,6 @@
 import type { IHotSearchStore, HotSearchItem, HotSearchStats } from "./hotSearchStore";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 
 const MAX_ENTRIES = 30;
 const DEFAULT_DB_DIR = "./data";
@@ -49,8 +51,8 @@ export class SqliteHotSearchStore implements IHotSearchStore {
   }
 
   private async init(): Promise<void> {
-    const Database = (await import("better-sqlite3")).default;
-    const { mkdirSync, existsSync } = await import("fs");
+    const Database = require("better-sqlite3");
+    const { mkdirSync, existsSync } = await import("node:fs");
     if (!existsSync(this.dbDir)) {
       mkdirSync(this.dbDir, { recursive: true });
     }
@@ -82,7 +84,7 @@ export class SqliteHotSearchStore implements IHotSearchStore {
     if (this.dbPath !== DEFAULT_DB_PATH) return;
     const JSON_PATH = "./data/hot-searches.json";
     try {
-      const { existsSync, readFileSync } = await import("fs");
+      const { existsSync, readFileSync } = await import("node:fs");
       if (!existsSync(JSON_PATH)) return;
 
       const raw = readFileSync(JSON_PATH, "utf-8");
@@ -183,7 +185,7 @@ export class SqliteHotSearchStore implements IHotSearchStore {
 
   getDbSize(): number {
     try {
-      const { existsSync, statSync } = require("fs");
+      const { existsSync, statSync } = require("node:fs");
       if (existsSync(this.dbPath)) {
         return Math.round((statSync(this.dbPath).size / (1024 * 1024)) * 100) / 100;
       }

@@ -121,18 +121,18 @@
             </svg>
           </div>
         </div>
-      </div>
 
-      <!-- 搜索历史 -->
-      <div v-if="showHistory && !loading && history.length > 0 && !modelValue" class="search-history">
-        <div class="search-history__title">最近搜索</div>
-        <div
-          v-for="term in history.slice(0, 5)"
-          :key="term"
-          class="search-history__item"
-          @mousedown.prevent="onSelectHistory(term)">
-          <span class="search-history__term">{{ term }}</span>
-          <span class="search-history__remove" @mousedown.prevent.stop="removeHistory(term)">×</span>
+        <!-- 搜索历史 -->
+        <div v-if="showHistory && !loading && history.length > 0 && !modelValue" class="search-history">
+          <div class="search-history__title">最近搜索</div>
+          <div
+            v-for="term in history.slice(0, 5)"
+            :key="term"
+            class="search-history__item"
+            @mousedown.prevent="onSelectHistory(term)">
+            <span class="search-history__term">{{ term }}</span>
+            <span class="search-history__remove" @mousedown.prevent.stop="removeHistory(term)">×</span>
+          </div>
         </div>
       </div>
     </div>
@@ -228,7 +228,6 @@ onBeforeUnmount(() => {
   transition: border-color var(--transition-normal), box-shadow var(--transition-normal),
     transform var(--transition-normal);
   position: relative;
-  overflow: hidden;
 }
 
 .search-box::before {

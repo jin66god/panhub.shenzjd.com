@@ -55,7 +55,7 @@ export async function fetchTgChannelPosts(
     }
 
     const $ = load(html || "");
-    const pageResults = parseChannelPage($, channel, keyword, limit - allResults.length);
+    const pageResults = parseChannelPage($, channel, keyword, limit - allResults.length, allResults.length);
     allResults.push(...pageResults);
 
     const nextLink = $('a[href*="before="]').first();
@@ -83,7 +83,8 @@ export function parseChannelPage(
   $: cheerio.CheerioAPI,
   channel: string,
   keyword: string,
-  limit: number
+  limit: number,
+  startIndex = 0
 ): SearchResult[] {
   const results: SearchResult[] = [];
 
@@ -220,7 +221,7 @@ export function parseChannelPage(
 
     results.push({
       message_id: postId,
-      unique_id: `tg-${channel}-${postId || i}`,
+      unique_id: `tg-${channel}-${postId || startIndex + i}`,
       channel,
       datetime: dateTitle ? new Date(dateTitle).toISOString() : "",
       title,

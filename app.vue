@@ -222,13 +222,19 @@ onMounted(() => {
   loadSettings();
   auth.fetchStatus();
   // 点击外部关闭移动端导航菜单
-  document.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement;
-    if (showNavMenu.value && !target.closest(".nav-menu-btn") && !target.closest(".nav-dropdown")) {
-      showNavMenu.value = false;
-    }
-  });
+  document.addEventListener("click", onDocumentClick);
 });
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", onDocumentClick);
+});
+
+function onDocumentClick(e: MouseEvent) {
+  const target = e.target as HTMLElement;
+  if (showNavMenu.value && !target.closest(".nav-menu-btn") && !target.closest(".nav-dropdown")) {
+    showNavMenu.value = false;
+  }
+}
 </script>
 
 <style>

@@ -4,7 +4,7 @@
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fwu529778790%2Fpanhub.shenzjd.com&project-name=panhub&repository-name=panhub.shenzjd.com)
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wu529778790/panhub.shenzjd.com)
-[![Docker Hub](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/wu529778790/panhub.shenzjd.com/pkgs/container/panhub)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/jin66god/panhub.shenzjd.com/pkgs/container/panhub.shenzjd.com)
 
 **在线体验**：<https://panhub.shenzjd.com>
 
@@ -74,14 +74,16 @@
 
 ```bash
 # 快速启动
-docker run --name panhub -p 4000:4000 -d ghcr.io/wu529778790/panhub.shenzjd.com:latest
+docker run --name panhub -p 4000:4000 -d ghcr.io/jin66god/panhub.shenzjd.com:latest
 
 # 数据持久化（推荐）
 mkdir -p /root/panhub/data
 docker run -d --name panhub -p 4000:4000 \
   -v /root/panhub/data:/app/data \
-  ghcr.io/wu529778790/panhub.shenzjd.com:latest
+  ghcr.io/jin66god/panhub.shenzjd.com:latest
 ```
+
+当前仓库的 GHCR 镜像由 GitHub Actions 自动构建并推送，`latest` 标签包含 `linux/amd64` 与 `linux/arm64` 两种架构。
 
 ### 方式四：本地开发
 

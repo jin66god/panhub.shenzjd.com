@@ -47,13 +47,53 @@ jobs:
           echo "local_default=$local_default" >> $GITHUB_OUTPUT
           echo "upstream_default=${UPSTREAM_BRANCH}" >> $GITHUB_OUTPUT
 
-      - name: Merge upstream -> fork (no fast-forward)
+      - name: Merge upstream -> fork and keep local Docker workflow
         run: |
           set -e
           git checkout "${{ steps.b.outputs.local_default }}"
-          # 保留 fork 的提交，合并上游最新提交
-          git merge --no-edit "upstream/${{ steps.b.outputs.upstream_default }}"
-          git push origin "${{ steps.b.outputs.local_default }}"
+
+          protected_files=(
+            ".github/workflows/docker-image.yml"
+          )
+
+          tmpdir="$(mktemp -d)"
+          for file in "${protected_files[@]}"; do
+            if [ -f "$file" ]; then
+              mkdir -p "$tmpdir/$(dirname "$file")"
+              cp "$file" "$tmpdir/$file"
+            fi
+          done
+
+          # 合并上游最新提交，但明确保留本 fork 自己维护的 Docker 镜像 workflow。
+          # 即使上游之后修改同名文件，也不会覆盖本仓库的多架构 GHCR 构建配置。
+          set +e
+          git merge --no-ff --no-commit "upstream/${{ steps.b.outputs.upstream_default }}"
+          merge_status=$?
+          set -e
+
+          for file in "${protected_files[@]}"; do
+            if [ -f "$tmpdir/$file" ]; then
+              cp "$tmpdir/$file" "$file"
+              git add "$file"
+            fi
+          done
+
+          unresolved="$(git diff --name-only --diff-filter=U)"
+          if [ -n "$unresolved" ]; then
+            echo "Upstream sync has unresolved conflicts outside protected files:"
+            echo "$unresolved"
+            exit 1
+          fi
+
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: sync upstream and keep local docker workflow"
+            git push origin "${{ steps.b.outputs.local_default }}"
+          elif [ "$merge_status" -eq 0 ]; then
+            echo "Already up to date; nothing to push."
+          else
+            echo "Merge did not create staged changes and returned status $merge_status."
+            exit "$merge_status"
+          fi
 
       - name: Sync tags
         run: git push --tags origin

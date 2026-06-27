@@ -19,10 +19,21 @@ export function useWxAuth() {
   onBeforeMount(() => {
     if (typeof window === "undefined") return;
 
-    // 手动设置 SDK 配置（不调用 init，避免立即弹窗）
-    (WxAuth as any).apiBase = "https://wx-auth.shenzjd.com";
-    (WxAuth as any).siteId = "panhub";
-    (WxAuth as any).onVerified = (user: any) => {
+    // 临时保存原始 showAuthModal，init() 会触发 autoCheck() 进而弹窗
+    const origShow = WxAuth.showAuthModal.bind(WxAuth);
+    (WxAuth as any).showAuthModal = () => {}; // 空函数阻止 autoCheck 弹窗
+
+    // 使用 init 设置 SDK 内部状态（apiBase + siteId）
+    WxAuth.init({
+      apiBase: "https://wx-auth.shenzjd.com",
+      siteId: "panhub",
+    });
+
+    // 恢复原始 showAuthModal
+    (WxAuth as any).showAuthModal = origShow;
+
+    // 注册认证成功回调
+    WxAuth.onVerified = (user: any) => {
       console.log("[wx-auth] 认证成功", user);
       isVerified.value = true;
     };

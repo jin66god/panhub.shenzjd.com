@@ -23,10 +23,9 @@ export function useWxAuth() {
     const origShow = WxAuth.showAuthModal.bind(WxAuth);
     (WxAuth as any).showAuthModal = () => {}; // 空函数阻止 autoCheck 弹窗
 
-    // 使用 init 设置 SDK 内部状态（使用新 API 直接在 init 中传入回调）
+    // 使用 init 设置 SDK 内部状态（siteId 已可省略，SDK 自动从 referrer/域名获取）
     WxAuth.init({
       apiBase: "https://wx-auth.shenzjd.com",
-      siteId: "panhub",
       onVerified: (user: any) => {
         console.log("[wx-auth] 认证成功", user);
         isVerified.value = true;
@@ -56,7 +55,7 @@ export function useWxAuth() {
             .find((c) => c.trim().startsWith("wxauth-openid="))
             ?.split("=")[1]
             ?.trim()
-        }&siteId=panhub`
+        }`
       )
         .then((r) => r.json())
         .then((data) => {
@@ -93,7 +92,7 @@ export function useWxAuth() {
   function showAuthModal() {
     // 确保 qrcode 已获取
     if (!(WxAuth as any).qrcodeUrl) {
-      fetch(`https://wx-auth.shenzjd.com/api/sdk/config?siteId=panhub`)
+      fetch(`https://wx-auth.shenzjd.com/api/sdk/config`)
         .then((r) => r.json())
         .then((data) => {
           if (data.qrcodeUrl) (WxAuth as any).qrcodeUrl = data.qrcodeUrl;

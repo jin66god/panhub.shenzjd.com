@@ -82,14 +82,6 @@
   ],
   "defaultPlugins": [
     "pansearch",
-    "qupansou",
-    "panta",
-    "hunhepan",
-    "jikepan",
-    "labi",
-    "thepiratebay",
-    "duoduo",
-    "xuexizhinan",
     "nyaa"
   ],
   "defaultConcurrency": 4,

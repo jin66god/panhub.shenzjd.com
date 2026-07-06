@@ -1,3 +1,5 @@
+import { loggers } from "../utils/logger";
+
 /**
  * 插件健康状态接口
  */
@@ -58,6 +60,10 @@ export class PluginHealthChecker {
       if (timeSinceLastFailure > this.config.circuitBreakerTimeoutMs) {
         current.isHealthy = true;
         current.failureCount = 0; // 重置失败计数
+        loggers.plugin.info("插件恢复正常", {
+          plugin: pluginName,
+          afterMs: timeSinceLastFailure,
+        });
       }
     }
 
@@ -77,8 +83,14 @@ export class PluginHealthChecker {
     current.lastFailureTime = Date.now();
 
     // 检查是否需要熔断
-    if (current.failureCount >= this.config.maxFailures) {
+    if (current.failureCount >= this.config.maxFailures && current.isHealthy) {
       current.isHealthy = false;
+      loggers.plugin.warn("插件触发熔断", {
+        plugin: pluginName,
+        failureCount: current.failureCount,
+        maxFailures: this.config.maxFailures,
+        breakerTimeoutMs: this.config.circuitBreakerTimeoutMs,
+      });
     }
 
     this.healthMap.set(pluginName, current);

@@ -13,6 +13,7 @@ import {
   type WarningInfo,
 } from "../utils/errors";
 import { buildSearchKeywordVariants } from "../utils/searchKeyword";
+import { loggers } from "../utils/logger";
 
 export interface SearchServiceOptions {
   priorityChannels: string[];
@@ -98,6 +99,7 @@ export class SearchService {
     }
 
     const errorCollector = new ErrorCollector();
+    const requestStart = Date.now();
     const effChannels =
       channels && channels.length > 0 ? channels : this.options.defaultChannels;
     const effConcurrency =
@@ -182,6 +184,19 @@ export class SearchService {
         merged_by_type: mergedLinks,
       };
     }
+
+    const requestMs = Date.now() - requestStart;
+    loggers.search.info("搜索请求完成", {
+      keyword,
+      total,
+      tgCount: tgResults.length,
+      pluginSources: pluginResults.length,
+      sourceType: effSourceType,
+      requestedPlugins: plugins ?? "all",
+      requestedChannels: effChannels.length,
+      durationMs: requestMs,
+      filteredResultCount: filteredForResults.length,
+    });
 
     return {
       response,
@@ -288,6 +303,16 @@ export class SearchService {
       this.cache.set(CacheNamespace.TG_SEARCH, cacheKey, results);
     }
 
+    loggers.search.debug("TG 搜索汇总", {
+      keyword,
+      channelCount: chList.length,
+      priorityCount: priorityList.length,
+      normalCount: normalList.length,
+      shallow: shallowResults.length,
+      deep: results.length - shallowResults.length,
+      wentDeep: results.length > shallowResults.length,
+    });
+
     return results;
   }
 
@@ -382,10 +407,26 @@ export class SearchService {
         const responseTime = Date.now() - startTime;
         this.healthChecker.recordSuccess(pluginName, responseTime);
 
+        loggers.search.debug("单插件完成", {
+          plugin: pluginName,
+          ms: responseTime,
+          count: results.length,
+          empty: results.length === 0,
+          keyword,
+        });
+
         return results;
       } catch (error) {
-        // 记录失败，使插件健康检查熔断器能够触发
+        const errorMs = Date.now() - startTime;
         this.healthChecker.recordFailure(pluginName);
+
+        loggers.search.debug("单插件失败", {
+          plugin: pluginName,
+          ms: errorMs,
+          error: error instanceof Error ? error.message : String(error),
+          keyword,
+        });
+
         throw error;
       }
     });

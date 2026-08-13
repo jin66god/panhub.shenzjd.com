@@ -1,4 +1,4 @@
-import type { IHotSearchStore, HotSearchItem, HotSearchStats, TrendingItem, TopTerm } from "./hotSearchStore";
+import type { IHotSearchStore, HotSearchItem, HotSearchStats, TopTerm, DaySnapshot, DayTerm } from "./hotSearchStore";
 import { loggers } from "../utils/logger";
 
 /**
@@ -27,7 +27,7 @@ function formatDateKey(ts: number): string {
 export class MemoryHotSearchStore implements IHotSearchStore {
   private memoryStore = new Map<string, HotSearchItem>();
   private termDict = new Map<string, { count: number; firstAt: number; lastAt: number }>();
-  private snapshots = new Map<string, Map<string, number>>();
+  private snapshots = new Map<string, Map<string, { rank: number; count: number }>>();
 
   async recordSearch(term: string, now: number): Promise<void> {
     if (!term || term.trim().length === 0) return;
@@ -37,6 +37,8 @@ export class MemoryHotSearchStore implements IHotSearchStore {
       // 指数加权：旧热度先按间隔衰减，再 +1，避免历史累计分数永久霸榜
       existing.score = decayScore(existing.score, existing.lastSearched, now) + 1;
       existing.lastSearched = now;
+      // 搜索流水日志：每次搜索都记录（isNew=false 表示历史词）
+      loggers.hotSearch.info("搜索词", { term, isNew: false });
     } else {
       this.memoryStore.set(term, {
         term,
@@ -44,8 +46,8 @@ export class MemoryHotSearchStore implements IHotSearchStore {
         lastSearched: now,
         createdAt: now,
       });
-      // 观测日志：新词首次出现（与 SQLite 版保持一致）
-      loggers.hotSearch.info("新词出现", { term });
+      // 搜索流水日志：新词首次出现（与 SQLite 版保持一致）
+      loggers.hotSearch.info("搜索词", { term, isNew: true });
     }
 
     // 词库表：全量搜索词 + 计数（联想补全 / 飙升 / 未来智能化）
@@ -133,45 +135,43 @@ export class MemoryHotSearchStore implements IHotSearchStore {
 
   async ensureTodaySnapshot(): Promise<void> {
     const date = formatDateKey(Date.now());
-    if (this.snapshots.has(date)) return;
-    const items = await this.getHotSearches(30);
-    const map = new Map<string, number>();
-    items.forEach((item, index) => {
-      map.set(item.term, index + 1);
-    });
+    const start = new Date(date + "T00:00:00").getTime();
+    const end = start + 86400000;
+    const dayTerms = Array.from(this.termDict.entries())
+      .filter(([, v]) => v.lastAt >= start && v.lastAt < end)
+      .sort((a, b) => b[1].count - a[1].count || b[1].lastAt - a[1].lastAt)
+      .map(([term, v], index) => ({ term, rank: index + 1, count: v.count }));
+    const map = new Map<string, { rank: number; count: number }>();
+    dayTerms.forEach((t) => map.set(t.term, { rank: t.rank, count: t.count }));
     this.snapshots.set(date, map);
   }
 
-  async getTrending(limit: number): Promise<TrendingItem[]> {
-    await this.ensureTodaySnapshot();
-    const today = formatDateKey(Date.now());
-    const yesterday = formatDateKey(Date.now() - 86400000);
+  async getCalendar(days: number): Promise<DaySnapshot[]> {
+    const safeDays = Math.min(Math.max(1, days), 90);
+    const out: DaySnapshot[] = [];
+    for (let i = safeDays - 1; i >= 0; i--) {
+      const date = formatDateKey(Date.now() - i * 86400000);
+      const map = this.snapshots.get(date);
+      if (!map || map.size === 0) {
+        out.push({ date, count: 0, top: [] });
+        continue;
+      }
+      const top = Array.from(map.entries())
+        .sort((a, b) => a[1].rank - b[1].rank)
+        .slice(0, 3)
+        .map(([term]) => term);
+      out.push({ date, count: map.size, top });
+    }
+    return out;
+  }
 
-    const todayMap = this.snapshots.get(today) ?? new Map<string, number>();
-    const prevMap = this.snapshots.get(yesterday) ?? new Map<string, number>();
-
-    const items: TrendingItem[] = Array.from(todayMap.entries()).map(([term, rank]) => {
-      const prevRank = prevMap.get(term) ?? null;
-      return {
-        term,
-        rank,
-        prevRank,
-        delta: prevRank === null ? rank : prevRank - rank,
-        score: 0,
-      };
-    });
-
-    items.sort((a, b) => {
-      const aNew = a.prevRank === null;
-      const bNew = b.prevRank === null;
-      if (aNew && bNew) return a.rank - b.rank;
-      if (aNew) return -1;
-      if (bNew) return 1;
-      if (b.delta !== a.delta) return b.delta - a.delta;
-      return a.rank - b.rank;
-    });
-
-    return items.slice(0, Math.min(Math.max(1, limit), 100));
+  async getDayItems(date: string): Promise<DayTerm[]> {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
+    const map = this.snapshots.get(date);
+    if (!map) return [];
+    return Array.from(map.entries())
+      .map(([term, v]) => ({ term, rank: v.rank, count: v.count }))
+      .sort((a, b) => a.rank - b.rank);
   }
 
   close(): void {

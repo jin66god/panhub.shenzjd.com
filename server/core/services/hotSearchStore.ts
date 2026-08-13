@@ -34,14 +34,19 @@ export interface IHotSearchStore {
   getStats(): Promise<HotSearchStats>;
 
   /**
-   * 懒生成当日榜单快照（无定时任务的 Serverless 环境友好）
+   * 懒生成当日榜单快照（全量词，无定时任务的 Serverless 环境友好）
    */
   ensureTodaySnapshot(): Promise<void>;
 
   /**
-   * 获取飙升榜：对比今日与昨日榜单排名变化
+   * 获取每日榜单日历（近 N 天，每天词数与 top3）
    */
-  getTrending(limit: number): Promise<TrendingItem[]>;
+  getCalendar(days: number): Promise<DaySnapshot[]>;
+
+  /**
+   * 获取指定日期的全量词单
+   */
+  getDayItems(date: string): Promise<DayTerm[]>;
 
   /**
    * 获取高价值搜索词（按搜索次数降序，用于 SEO sitemap 选词）
@@ -68,17 +73,24 @@ export interface HotSearchStats {
   topTerms: HotSearchItem[];
 }
 
-export interface TrendingItem {
-  term: string;
-  rank: number;
-  /** 昨日排名，null 表示新上榜 */
-  prevRank: number | null;
-  /** rank 变化量（正=上升，负=下降，新上榜取 rank 本身） */
-  delta: number;
-  score: number;
-}
-
 export interface TopTerm {
   term: string;
+  count: number;
+}
+
+export interface DaySnapshot {
+  /** 日期键 YYYY-MM-DD */
+  date: string;
+  /** 当天搜索词总数 */
+  count: number;
+  /** 当天热度最高的 3 个词 */
+  top: string[];
+}
+
+export interface DayTerm {
+  term: string;
+  /** 当天排名（按搜索次数降序） */
+  rank: number;
+  /** 当天搜索次数 */
   count: number;
 }

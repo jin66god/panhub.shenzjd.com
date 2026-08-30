@@ -54,26 +54,25 @@ npm deploy:cf            # Deploy to Cloudflare Workers
 - **`app.vue`**: Single-page app with header, search box, results, hot searches, Douban section, settings drawer.
 - **`composables/useSearch.ts`**: Search state machine (loading → deepLoading → done), with pause/resume.
 - **`composables/useSettings.ts`**: User settings (enabled plugins, TG channels, concurrency, timeout).
-- **`composables/useAuth.ts`**: Password gate — calls `/api/auth/status` and `/api/auth/unlock`.
 - **`utils/extractMergedFromResponse.ts`** + **`utils/mergeMergedByType.ts`**: Client-side result merging helpers.
-- **Components**: `SearchBox`, `ResultGroup`, `ResultHeader`, `PasswordGate`, `HotSearchSection`, `DoubanHotSection`, `SettingsDrawer`.
+- **Components**: `SearchBox`, `ResultGroup`, `ResultHeader`, `HotSearchSection`, `DoubanHotSection`, `SettingsDrawer`.
 
 ### Configuration (`config/`)
 
-- **`channels.json`**: TG channel lists (`priorityChannels`, `defaultChannels`), concurrency, timeouts, cache TTL. Loaded into `nuxt.config.ts` runtimeConfig.
-- **`plugins.ts`**: Plugin names (`ALL_PLUGIN_NAMES`), platform info (`PLATFORM_INFO` with colors/icons), `DEFAULT_USER_SETTINGS`, `STORAGE_KEYS`.
+- **`channels.json`**: 运行参数模板（concurrency, timeouts, cache TTL）。**真实频道清单已于 2026-08-24 迁出仓库**：AES-256-GCM 加密存入 Turso `channel_config` 表，由 `server/core/services/channelConfigService.ts` 拉取解密缓存。修改频道：配好 `CHANNEL_KEY` 后运行 `scripts/sync-channels.mjs`。
+- **`plugins.ts`**: Platform info (`PLATFORM_INFO` with colors/icons) used by the frontend to render source icons; `DEFAULT_USER_SETTINGS` (concurrency/timeout defaults). Plugin names are now owned by the backend `PluginManager` (frontend no longer holds a plugin list).
 - **`doubanHot.ts`**: Douban API configuration.
 - **`data/`**: SQLite database for hot search persistence (Docker/local only, not in git).
 
 ### Authentication
 
-Optional password gate controlled by `SEARCH_PASSWORD` env var. When set, `/api/auth/status` returns `locked: true`, and users must POST to `/api/auth/unlock` with the password to receive a cookie. The cookie is checked on `/api/search` routes.
+Search routes are protected by WeChat Official Account (公众号) login verification (`requireWxAuth`), plus bot UA / IP blacklist defense. See `docs/bot-defense-and-tuning.md`.
 
 ## API Routes (`server/api/`)
 
 All routes use the `name.method.ts` convention (e.g., `search.get.ts`, `hot-searches.post.ts`).
 
-Key routes: `search.get.ts`/`search.post.ts`, `hot-searches.get.ts`/`hot-searches.post.ts`, `auth/status.get.ts`/`auth/unlock.post.ts`, `douban-hot.get.ts`, `img.get.ts` (image proxy), `health.get.ts`, `plugin-health.get.ts`.
+Key routes: `search.get.ts`/`search.post.ts`, `hot-searches.get.ts`/`hot-searches.post.ts`, `douban-hot.get.ts`, `img.get.ts` (image proxy), `health.get.ts`, `plugin-health.get.ts`.
 
 Route rules in `nuxt.config.ts` disable caching for all API routes (SWR 3600 only on `/**` catch-all).
 
@@ -98,7 +97,7 @@ Route rules in `nuxt.config.ts` disable caching for all API routes (SWR 3600 onl
 
 ## Conventions
 
-- Vue composables: `use` prefix (`useSearch`, `useSettings`, `useAuth`).
+- Vue composables: `use` prefix (`useSearch`, `useSettings`).
 - Server routes: `name.get.ts` / `name.post.ts` under `server/api/`.
 - Unit tests: `test/unit/*.test.ts`.
 - Integration tests: `test/*.mjs`.
@@ -107,7 +106,6 @@ Route rules in `nuxt.config.ts` disable caching for all API routes (SWR 3600 onl
 
 ## Environment Variables
 
-- `SEARCH_PASSWORD`: Optional password for search access. Empty = no password gate.
 - `LOG_LEVEL`: Logging level (default: `info`).
 - `NITRO_PRESET`: Deployment preset (auto-detect if unset).
 - `PORT`: Server port (default: `4000`).

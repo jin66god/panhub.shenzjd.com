@@ -38,12 +38,21 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
-    name: Build multi-arch image
-    runs-on: ubuntu-latest
+  build:
+    name: Build ${{ matrix.arch }} image (native ${{ matrix.arch }} runner)
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
     outputs:
       image: ${{ steps.image.outputs.image }}
-      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,10 +64,46 @@ jobs:
           echo "image=${image}" >> "$GITHUB_OUTPUT"
           echo "IMAGE=${image}" >> "$GITHUB_ENV"
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          platforms: arm64
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 每平台 job 只推带架构后缀的 tag（latest-amd64 / sha-xxx-arm64 等），
+      # 最终的多架构 latest / sha tag 由 merge job 用 imagetools create 合并。
+      - name: Build and push ${{ matrix.platform }}
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}:latest-${{ matrix.arch }}
+            ${{ steps.image.outputs.image }}:sha-${{ github.sha }}-${{ matrix.arch }}
+          labels: |
+            org.opencontainers.image.title=${{ github.event.repository.name }}
+            org.opencontainers.image.description=PanHub Nuxt server image
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  merge:
+    name: Merge multi-arch manifest
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && !cancelled()
+    steps:
+      - name: Normalize image name
+        run: |
+          image="${REGISTRY}/$(echo "${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')"
+          echo "IMAGE=${image}" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -70,41 +115,40 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.image.outputs.image }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,format=long,prefix=
-            type=sha,format=short,prefix=sha-
-          labels: |
-            org.opencontainers.image.title=${{ github.event.repository.name }}
-            org.opencontainers.image.description=PanHub Nuxt server image
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      - name: Merge platform images into multi-arch tags
+        run: |
+          set -e
+          IMAGE="${IMAGE}"
+          SHA_LONG="${{ github.sha }}"
+          SHA_SHORT="${SHA_LONG:0:7}"
 
-      - name: Build and push multi-arch image
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # latest 多架构标签
+          docker buildx imagetools create \
+            -t "${IMAGE}:latest" \
+            "${IMAGE}:latest-amd64" \
+            "${IMAGE}:latest-arm64"
+          echo "created ${IMAGE}:latest"
 
-      - name: Inspect pushed image manifest
+          # sha 长/短 多架构标签
+          docker buildx imagetools create \
+            -t "${IMAGE}:${SHA_LONG}" \
+            "${IMAGE}:sha-${SHA_LONG}-amd64" \
+            "${IMAGE}:sha-${SHA_LONG}-arm64"
+          echo "created ${IMAGE}:${SHA_LONG}"
+
+          docker buildx imagetools create \
+            -t "${IMAGE}:${SHA_SHORT}" \
+            "${IMAGE}:sha-${SHA_LONG}-amd64" \
+            "${IMAGE}:sha-${SHA_LONG}-arm64"
+          echo "created ${IMAGE}:${SHA_SHORT}"
+
+      - name: Inspect merged manifest
         run: |
           docker buildx imagetools inspect "${IMAGE}:latest"
-          docker buildx imagetools inspect "${IMAGE}@${{ steps.build.outputs.digest }}"
 
   deploy:
     name: Deploy to server
-    needs: build-and-push
+    needs: merge
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
@@ -131,7 +175,7 @@ jobs:
           password: ${{ secrets.DEPLOY_PASSWORD }}
           script: |
             set -e
-            IMAGE="${{ needs.build-and-push.outputs.image }}:latest"
+            IMAGE="${{ needs.build.outputs.image }}:latest"
             CONTAINER="${{ github.event.repository.name }}"
             DATA_DIR="/opt/1panel/apps/openresty/openresty/www/sites/panhub.shenzjd.com/index"
 

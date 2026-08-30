@@ -2,8 +2,6 @@
 
 > 一个搜索框，搜遍全网网盘资源 —— 即搜即得、聚合去重、免费开源、零广告、轻量部署
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fwu529778790%2Fpanhub.shenzjd.com&project-name=panhub&repository-name=panhub.shenzjd.com)
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wu529778790/panhub.shenzjd.com)
 [![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/jin66god/panhub.shenzjd.com/pkgs/container/panhub.shenzjd.com)
 
 **在线体验**：<https://panhub.shenzjd.com>
@@ -14,13 +12,14 @@
 
 ### 🔍 智能搜索
 
-- **多源聚合**：同时搜索 Telegram 80+ 频道 + 20+ 第三方插件
-- **优先级调度**：高优先级频道优先返回，首屏结果提速 50%+
+- **多源聚合**：TG 频道 + 12 个第三方搜索插件，聚合去重、智能排序
+- **优先级调度**：高优先级频道优先返回，首屏结果提速
 - **批量并发**：独立配置优先/普通频道并发数，充分利用网络带宽
 - **暂停/继续**：搜索过程可随时暂停，断点续跑不丢结果
 - **插件熔断**：失败插件自动降级 5 分钟，避免拖慢整体搜索
 - **请求超时取消**：AbortController 真正取消超时请求，不泄漏连接
 - **智能缓存**：LRU 淘汰 + 内存监控 + 过期清理
+- **结果相关性过滤**：与搜索词无关的插件结果整条丢弃
 
 ### 📊 豆瓣影视榜单
 
@@ -40,41 +39,30 @@
 ### 🔥 热门搜索
 
 - **实时热搜**：展示其他用户搜索词，点击即可搜索
-- **数据持久化**：SQLite 存储（Docker/本地）+ 内存降级（Serverless）
+- **数据持久化**：Turso（Docker/本地 + Serverless 通用），内存降级兜底
 - **搜索统计**：实时展示热搜榜使用次数
 
 ### 🎨 用户体验
 
 - **深色模式**：完整支持深色主题，自动跟随系统偏好
 - **响应式设计**：完美适配桌面、平板、手机
-- **密码门**：可配置 `SEARCH_PASSWORD`，密码爆破防护（5 次失败锁定）
+- **顶部导航**：site-navbar Web Component（无框架依赖），自动高亮当前站
 - **优雅降级**：单个插件/频道失败不影响整体
 
 ### 🛡️ 安全与稳定性
 
-- **限流防护**：API 路由限流 + unlock 密码爆破防护
+- **wx-auth 认证**：微信小程序 Bearer token 与公众号 cookie 双通道，统一走 wx-auth 服务校验；未认证请求返回蜜罐假数据，不泄露真实结果
+- **限流防护**：API 路由限流 + 登录态校验
 - **SSRF 防护**：图片代理白名单 + URL 严格校验
 - **输入校验**：关键词长度限制、并发数范围校验
 - **错误处理**：统一的 `createError` 错误响应
-- **125+ 测试用例**：核心逻辑全覆盖
+- **410+ 测试用例**：核心逻辑全覆盖（单元 + 集成 + API 回归）
 
 ---
 
 ## 🚀 快速开始
 
-### 方式一：Vercel 一键部署（推荐）
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fwu529778790%2Fpanhub.shenzjd.com&project-name=panhub&repository-name=panhub.shenzjd.com)
-
-### 方式二：Cloudflare Workers 一键部署
-
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wu529778790/panhub.shenzjd.com)
-
-点击按钮后 Cloudflare 会自动：克隆仓库到你的 GitHub 账号 → 创建 D1 数据库并绑定（热搜持久化）→ 配置 Workers Builds（每次 push 自动构建部署）。
-
-> **部署配置**：在 Cloudflare 配置页将 **Build command** 设为 `npm run build:cf`（deploy command 会自动检测为 `npx wrangler deploy`）。部署完成后可在 Cloudflare Dashboard 的 **Workers Builds** 中关联仓库生产分支，实现 push 即自动更新。
-
-### 方式三：Docker 部署
+### 方式一：Docker 部署（推荐）
 
 ```bash
 # 快速启动
@@ -87,7 +75,21 @@ docker run -d --name panhub -p 4000:4000 \
   ghcr.io/jin66god/panhub.shenzjd.com:latest
 ```
 
-当前仓库的 GHCR 镜像由 GitHub Actions 自动构建并推送，`latest` 标签包含 `linux/amd64` 与 `linux/arm64` 两种架构。
+当前仓库的 GHCR 镜像由 GitHub Actions **双平台原生构建**（amd64 + arm64）并自动推送，`latest` 标签为多架构 manifest，任意架构主机可直接拉取。
+
+> **部署自动更新**：本仓库的 GitHub Actions 支持配置 `DEPLOY_HOST` / `DEPLOY_USER` / `DEPLOY_PASSWORD` secrets 后，每次构建成功自动 SSH 部署到服务器（容器名 `panhub.shenzjd.com`，映射端口 `5253:4000`，数据目录 `/opt/1panel/apps/openresty/openresty/www/sites/panhub.shenzjd.com/index`）。未配置 secrets 时自动跳过，不影响构建。
+
+### 方式二：Cloudflare Workers 部署
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jin66god/panhub.shenzjd.com)
+
+点击按钮后 Cloudflare 会自动：克隆仓库到你的 GitHub 账号 → 创建 D1 数据库并绑定（热搜持久化）→ 配置 Workers Builds（每次 push 自动构建部署）。
+
+> **部署配置**：在 Cloudflare 配置页将 **Build command** 设为 `npm run build:cf`（deploy command 会自动检测为 `npx wrangler deploy`）。部署完成后可在 Cloudflare Dashboard 的 **Workers Builds** 中关联仓库生产分支，实现 push 即自动更新。
+
+### 方式三：Vercel 一键部署
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fjin66god%2Fpanhub.shenzjd.com&project-name=panhub&repository-name=panhub.shenzjd.com)
 
 ### 方式四：本地开发
 
@@ -112,7 +114,7 @@ npm build
 ### 搜索流程
 
 1. **输入关键词并回车**开始搜索
-2. **快速结果**：优先频道先返回（~50ms）
+2. **快速结果**：优先频道先返回
 3. **深度结果**：剩余频道继续加载
 4. **自动合并**：结果去重、按时间排序、分类型展示
 
@@ -141,15 +143,16 @@ npm build
 | `LOG_LEVEL` | `info` | 日志级别（debug/info/warn/error），支持白名单校验 |
 | `NITRO_PRESET` | auto-detect | 部署预设（vercel/cloudflare/node-server） |
 | `PORT` | `4000` | 服务端口 |
-| `SEARCH_PASSWORD` | 空 | 非空时启用密码门，搜索时需输入密码（5 次失败锁定 5 分钟） |
-| `D1_ACCOUNT_ID` / `D1_DATABASE_ID` / `D1_API_TOKEN` | 空 | **Docker 侧**通过 D1 REST 与 Worker 共享热搜数据（需自行创建 D1 Edit 权限的 API Token） |
+| `TURSO_URL` / `TURSO_AUTH_TOKEN` | 空 | 热搜与频道清单的 Turso 数据库连接（未配置时内存降级，重启丢失） |
+| `CHANNEL_KEY` | 空 | 频道清单解密密钥（64 位 hex），用于解密 Turso channel_config 表中的加密频道配置 |
+| `WX_AUTH_API_BASE` | `https://wx-auth.shenzjd.com` | wx-auth 认证服务地址（小程序 Bearer token 与公众号 cookie 均转发该服务校验） |
 
 ### 部署差异说明
 
 | 特性 | Docker/Node | CF Workers / Vercel |
 |------|-------------|---------------------|
 | 进程内缓存 | ✅ 持久 | ❌ 每个 isolate 独立 |
-| 热搜数据持久化 | ✅ SQLite / D1 | ✅ D1（Worker 内置） |
+| 热搜数据持久化 | ✅ Turso | ✅ Turso（内置） |
 | 插件健康状态 | ✅ 持久 | ❌ 每次冷启动重置 |
 | 链接有效性检测 | ✅ 持久缓存 | ✅（探活缓存按实例独立） |
 
@@ -163,6 +166,7 @@ npm build
 - **样式**：原生 CSS（无框架依赖）
 - **状态管理**：Vue Composition API
 - **类型安全**：TypeScript
+- **顶部导航**：`@wu529778790/site-navbar` Web Component（CDN 加载，零构建依赖）
 
 ### 后端技术栈
 
@@ -170,7 +174,8 @@ npm build
 - **HTML 解析**：Cheerio（TG 频道 + 插件）
 - **HTTP 客户端**：ofetch
 - **并发控制**：p-limit
-- **数据库**：node:sqlite（Node 内置 SQLite）
+- **数据库**：Turso（@libsql/client）
+- **认证**：wx-auth-sdk（UMD 全局单例，CDN 加载）
 - **测试框架**：Vitest
 
 ### 核心模块
@@ -178,14 +183,15 @@ npm build
 ```
 server/core/
 ├── services/
-│   ├── searchService.ts    # 搜索编排器（熔断器 + AbortController + 缓存）
+│   ├── searchService.ts    # 搜索编排器（熔断器 + AbortController + 缓存 + 相关性过滤）
 │   ├── tg.ts               # TG 频道抓取
+│   ├── channelConfigService.ts # 频道配置（Turso 加密存储 + 解密下发）
 │   ├── doubanHotService.ts # 豆瓣榜单（JSON API + 24h 缓存）
-│   ├── hotSearchService.ts # 热搜持久化
+│   ├── hotSearchService.ts # 热搜持久化（Turso）
 │   └── ...
 ├── cache/
 │   └── memoryCache.ts      # LRU 缓存
-├── plugins/                # 20+ 搜索插件
+├── plugins/                # 12 个搜索插件
 │   ├── manager.ts          # 插件注册
 │   ├── pluginHealth.ts     # 熔断器
 │   └── ...
@@ -195,11 +201,16 @@ server/core/
     ├── searchKeyword.ts    # CJK 关键词变体
     └── logger.ts           # 日志
 
+server/middleware/
+└── rateLimiter.ts          # API 路由限流
+
+server/utils/
+├── requireAuth.ts          # wx-auth 认证校验
+├── wxAuthCheck.ts          # 蜜罐假数据分支
+└── entryRateLimit.ts       # 入口限流
+
 server/api/
 └── check.post.ts           # 链接有效性检测（服务端探活）
-
-composables/
-└── useLinkCheck.ts         # 前端异步懒查（角标渲染）
 ```
 
 ---
@@ -235,7 +246,7 @@ composables/
 ### 测试
 
 ```bash
-# 运行所有测试（125+ 测试用例）
+# 运行所有测试（410+ 测试用例）
 npm test
 
 # 监听模式
@@ -243,6 +254,9 @@ npm test:watch
 
 # 生成覆盖率报告
 npm test:coverage
+
+# API 回归测试
+npm run test:api
 ```
 
 ---
@@ -269,7 +283,7 @@ npm test:coverage
 - [Nitro](https://nitro.unjs.io/) - Web 服务器工具包
 - [Cheerio](https://cheerio.js.org/) - HTML 解析器
 - [p-limit](https://github.com/sindresorhus/p-limit) - 并发控制
-- [node:sqlite](https://nodejs.org/api/sqlite.html) - Node 内置 SQLite
+- [@libsql/client](https://github.com/tursodatabase/libsql-client-ts) - Turso 数据库客户端
 - [Vitest](https://vitest.dev/) - 测试框架
 
 ---
